@@ -121,7 +121,7 @@ def update_purchase(pr_id: int, update_in: schemas.PurchaseRequestUpdate, db: Se
         for existing in pr.items:
             db.delete(existing)
         for item_data in new_items:
-            db.add(models.PurchaseItem(request_id=pr.id, **item_data.model_dump()))
+            db.add(models.PurchaseItem(request_id=pr.id, **item_data))
 
     if update_in.status == "arrived" and not pr.actual_arrival_date:
         pr.actual_arrival_date = date.today()

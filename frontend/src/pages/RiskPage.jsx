@@ -261,16 +261,16 @@ export default function RiskPage() {
 
                     <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                       {r.related_type === 'process' && (
-                        <a onClick={() => navigate('/processes')}>前往工序 →</a>
+                        <a onClick={() => navigate({ pathname: '/processes', search: `?project_id=${r.project_id || ''}&process_id=${r.related_id || ''}` })}>前往工序 →</a>
                       )}
                       {r.related_type === 'purchase' && (
-                        <a onClick={() => navigate('/purchases')}>前往采购 →</a>
+                        <a onClick={() => navigate({ pathname: '/purchases', search: `?project_id=${r.project_id || ''}&pr_id=${r.related_id || ''}` })}>前往采购 →</a>
                       )}
                       {r.related_type === 'part' && (
-                        <a onClick={() => navigate('/purchases')}>处理缺件 →</a>
+                        <a onClick={() => navigate({ pathname: '/purchases', search: `?tab=parts` })}>处理缺件 →</a>
                       )}
                       {r.related_type === 'inspection' && (
-                        <a onClick={() => navigate('/inspections')}>处理质量 →</a>
+                        <a onClick={() => navigate({ pathname: '/inspections', search: `?process_id=${r.extra?.process_id || ''}` })}>处理质量 →</a>
                       )}
                     </div>
                   </div>

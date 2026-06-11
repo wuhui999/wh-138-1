@@ -24,6 +24,11 @@ def create_inspection(ins_in: schemas.InspectionCreate, db: Session = Depends(ge
     proc = db.query(models.Process).filter(models.Process.id == ins_in.process_id).first()
     if not proc:
         raise HTTPException(status_code=404, detail="关联工序不存在")
+    existing = db.query(models.Inspection).filter(
+        models.Inspection.process_id == ins_in.process_id
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail=f"该工序已存在验收记录(编号#{existing.id})，请勿重复创建。如需修改请直接编辑原验收单。")
     ins = models.Inspection(**ins_in.model_dump())
     db.add(ins)
     db.commit()

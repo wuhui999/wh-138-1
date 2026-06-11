@@ -1,5 +1,5 @@
-import { Layout, Menu, theme } from 'antd'
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
+import { Layout, Menu, theme, Dropdown, Avatar, Space, Tag } from 'antd'
+import { Routes, Route, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import {
   DashboardOutlined,
   ProjectOutlined,
@@ -8,7 +8,12 @@ import {
   CheckCircleOutlined,
   AlertOutlined,
   BarChartOutlined,
+  LogoutOutlined,
+  UserOutlined,
 } from '@ant-design/icons'
+import { useEffect, useState } from 'react'
+import { useUserStore, ROLE_MAP } from './store'
+import { userApi } from './api'
 import DashboardPage from './pages/DashboardPage.jsx'
 import ProjectsPage from './pages/ProjectsPage.jsx'
 import ProcessPage from './pages/ProcessPage.jsx'
@@ -36,6 +41,60 @@ export default function App() {
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken()
+  const { currentUser, users, setCurrentUser, setUsers } = useUserStore()
+  const [usersLoaded, setUsersLoaded] = useState(false)
+
+  useEffect(() => {
+    userApi.list().then(data => {
+      setUsers(data)
+      setUsersLoaded(true)
+    }).catch(() => {})
+  }, [setUsers])
+
+  const handleSwitchUser = (user) => {
+    setCurrentUser(user)
+  }
+
+  const userDropdownItems = [
+    {
+      key: 'current',
+      type: 'group',
+      label: (
+        <span style={{ fontWeight: 600, color: '#1677ff' }}>
+          当前登录：{currentUser?.name}（{ROLE_MAP[currentUser?.role]?.text || currentUser?.role}）
+        </span>
+      ),
+    },
+    { type: 'divider' },
+    ...(users && users.length ? users.map(u => ({
+      key: `user_${u.id}`,
+      label: (
+        <div>
+          <span style={{ marginRight: 8 }}>{u.name}</span>
+          <span style={{ color: '#999', fontSize: 12 }}>
+            {ROLE_MAP[u.role]?.text || u.role}
+            {u.team ? ` · ${u.team}` : ''}
+          </span>
+          {u.id === currentUser?.id && (
+            <span style={{ color: '#1677ff', marginLeft: 8, fontSize: 12 }}>✓</span>
+          )}
+        </div>
+      ),
+      disabled: u.id === currentUser?.id,
+      onClick: () => handleSwitchUser(u),
+      icon: <UserOutlined />,
+    })) : []),
+    { type: 'divider' },
+    {
+      key: 'logout',
+      label: <span style={{ color: '#ff4d4f' }}>退出登录</span>,
+      icon: <LogoutOutlined />,
+      onClick: () => {
+        const defaultUser = users[0] || { id: 1, username: 'admin', name: '系统管理员', role: 'manager' }
+        setCurrentUser(defaultUser)
+      },
+    },
+  ]
 
   const selectedKey = location.pathname.startsWith('/projects/')
     ? '/projects'
@@ -74,16 +133,31 @@ export default function App() {
           <h2 style={{ margin: 0, fontSize: 18, color: '#001529' }}>
             {menuItems.find(m => m.key === selectedKey)?.label || '工作台'}
           </h2>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span style={{ color: '#666' }}>系统管理员</span>
+          <Dropdown menu={{ items: userDropdownItems }} placement="bottomRight" arrow>
             <div style={{
-              width: 32, height: 32, borderRadius: '50%',
-              background: '#1677ff', color: 'white',
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>
-              管
+              display: 'flex', alignItems: 'center', gap: 12,
+              cursor: 'pointer', padding: '4px 8px', borderRadius: 4,
+              transition: 'background 0.2s',
+            }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#f0f5ff'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+            >
+              <Avatar
+                size="small"
+                style={{
+                  background: currentUser?.role === 'manager' ? '#1677ff'
+                    : currentUser?.role === 'team' ? '#52c41a'
+                    : currentUser?.role === 'procurement' ? '#722ed1'
+                    : currentUser?.role === 'qa' ? '#faad14' : '#8c8c8c'
+                }}
+                icon={<UserOutlined />}
+              />
+              <span style={{ color: '#333' }}>{currentUser?.name}</span>
+              <Tag color={ROLE_MAP[currentUser?.role]?.color || 'default'} style={{ margin: 0 }}>
+                {ROLE_MAP[currentUser?.role]?.text || currentUser?.role}
+              </Tag>
             </div>
-          </div>
+          </Dropdown>
         </Header>
         <Content style={{
           margin: 16, padding: 24,

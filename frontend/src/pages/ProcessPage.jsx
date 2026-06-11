@@ -1,33 +1,79 @@
 import { useEffect, useState } from 'react'
 import { Card, Row, Col, Tree, Button, Tag, Space, Modal, Form, Input, Select, DatePicker, Progress, Divider, Alert, Slider, Drawer, App, Empty, Tooltip, Cascader } from 'antd'
 import { PlusOutlined, EditOutlined, LinkOutlined, DisconnectOutlined, PlayCircleOutlined, WarningOutlined, CheckCircleOutlined, ClockCircleOutlined, TeamOutlined } from '@ant-design/icons'
+import { useSearchParams } from 'react-router-dom'
 import { projectApi, processApi, userApi } from '../api'
 import { STATUS_MAP } from '../store'
 import dayjs from 'dayjs'
 
 export default function ProcessPage() {
   const { message, modal } = App.useApp()
+  const [searchParams] = useSearchParams()
   const [projects, setProjects] = useState([])
   const [selectedProject, setSelectedProject] = useState(null)
   const [treeData, setTreeData] = useState([])
   const [selectedNode, setSelectedNode] = useState(null)
+  const [expandedKeys, setExpandedKeys] = useState([])
   const [processDetail, setProcessDetail] = useState(null)
   const [users, setUsers] = useState([])
   const [form] = Form.useForm()
   const [modalOpen, setModalOpen] = useState(false)
   const [editingProc, setEditingProc] = useState(null)
   const [depDrawerOpen, setDepDrawerOpen] = useState(false)
+  const [targetProcessId, setTargetProcessId] = useState(null)
 
   useEffect(() => {
     loadProjects()
     loadUsers()
   }, [])
 
+  useEffect(() => {
+    const ppid = searchParams.get('project_id')
+    const pcid = searchParams.get('process_id')
+    if (pcid) setTargetProcessId(Number(pcid))
+    if (ppid && projects.length > 0) {
+      const proj = projects.find(p => p.id === Number(ppid))
+      if (proj) selectProject(proj.id, Number(pcid))
+    } else if (pcid && projects.length > 0) {
+      locateProcessAcrossProjects(Number(pcid))
+    }
+  }, [searchParams, projects])
+
+  const locateProcessAcrossProjects = async (procId) => {
+    for (const proj of projects) {
+      try {
+        const tree = await processApi.tree(proj.id)
+        const flat = []
+        const flatten = (nodes) => nodes.forEach(n => {
+          flat.push(n)
+          if (n.children?.length) flatten(n.children)
+        })
+        flatten(tree)
+        const found = flat.find(n => n.id === procId)
+        if (found) {
+          await selectProject(proj.id, procId)
+          return
+        }
+      } catch (e) { }
+    }
+    message.warning('未找到关联工序，已打开第一个项目')
+    if (projects.length > 0) selectProject(projects[0].id)
+  }
+
   const loadProjects = async () => {
     try {
       const ps = await projectApi.list()
       setProjects(ps)
-      if (ps.length > 0 && !selectedProject) {
+      const ppid = searchParams.get('project_id')
+      const pcid = searchParams.get('process_id')
+      if (ppid) {
+        const proj = ps.find(p => p.id === Number(ppid))
+        if (proj) selectProject(proj.id, Number(pcid))
+        else if (pcid) locateProcessAcrossProjects(Number(pcid))
+        else if (ps.length > 0 && !selectedProject) selectProject(ps[0].id)
+      } else if (pcid) {
+        setTargetProcessId(Number(pcid))
+      } else if (ps.length > 0 && !selectedProject) {
         selectProject(ps[0].id)
       }
     } catch (e) { message.error(e.message) }
@@ -37,13 +83,61 @@ export default function ProcessPage() {
     try { setUsers(await userApi.list()) } catch (e) { }
   }
 
-  const selectProject = async (projectId) => {
+  const findAncestorIds = (nodes, targetId, path = []) => {
+    for (const n of nodes) {
+      if (n.key === targetId) return [...path, n.key]
+      if (n.children?.length) {
+        const found = findAncestorIds(n.children, targetId, [...path, n.key])
+        if (found) return found
+      }
+    }
+    return null
+  }
+
+  const selectProject = async (projectId, autoSelectProcId = null) => {
     setSelectedProject(projectId)
     try {
       const tree = await processApi.tree(projectId)
-      setTreeData(buildAntTree(tree))
+      const antTree = buildAntTree(tree)
+      setTreeData(antTree)
       setProcessDetail(null)
       setSelectedNode(null)
+
+      const pickId = autoSelectProcId || targetProcessId
+      if (pickId) {
+        const flat = []
+        const flatten = (nodes) => nodes.forEach(n => {
+          flat.push(n.raw)
+          if (n.children?.length) flatten(n.children)
+        })
+        flatten(antTree)
+        const target = flat.find(n => n.id === pickId)
+        if (target) {
+          const ancestors = findAncestorIds(antTree, pickId)
+          if (ancestors && ancestors.length > 1) {
+            setExpandedKeys(ancestors.slice(0, -1).map(String))
+          }
+          setTimeout(async () => {
+            setSelectedNode([String(pickId)])
+            try {
+              setProcessDetail(await processApi.get(pickId))
+              message.success(`已定位到工序：${target.name}`)
+            } catch (e) { }
+          }, 200)
+          setTargetProcessId(null)
+          return
+        }
+      }
+      // 无定位目标，默认展开全部
+      const allKeys = []
+      const walk = (nodes) => nodes.forEach(n => {
+        if (n.children?.length) {
+          allKeys.push(String(n.key))
+          walk(n.children)
+        }
+      })
+      walk(antTree)
+      setExpandedKeys(allKeys)
     } catch (e) { message.error(e.message) }
   }
 
@@ -220,9 +314,10 @@ export default function ProcessPage() {
                 showIcon
                 blockNode
                 selectedKeys={selectedNode ? [selectedNode] : []}
+                expandedKeys={expandedKeys}
+                onExpand={(keys) => setExpandedKeys(keys)}
                 onSelect={onSelectNode}
                 treeData={treeData}
-                defaultExpandAll
               />
             )}
           </Card>
