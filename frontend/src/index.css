@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  background-color: #f0f2f5;
+}
+
+.gantt-bar {
+  transition: all 0.2s ease;
+}
+
+.gantt-bar:hover {
+  filter: brightness(1.1);
+  transform: scaleY(1.05);
+}
+
+.process-tree-node {
+  transition: background-color 0.15s ease;
+}
+
+.process-tree-node:hover {
+  background-color: #f5f5f5;
+}
+
+.risk-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.risk-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
